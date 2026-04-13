@@ -48,9 +48,17 @@ export const api = {
   downloadAlbum: (payload: Record<string, unknown>) =>
     http.post("/api/download/downloadAlbum", payload),
   downloadParserText: (payload: { text: string }) =>
-    http.post("/api/download/downloadParserText", payload),
+    http.post<unknown, ApiResponse<unknown>>(
+      "/api/download/downloadParserText",
+      payload,
+      { timeout: 0 },
+    ),
   downloadParserTextResult: (payload: unknown[]) =>
-    http.post("/api/download/downloadParserTextResult", payload),
+    http.post<unknown, ApiResponse<unknown>>(
+      "/api/download/downloadParserTextResult",
+      payload,
+      { timeout: 0 },
+    ),
   downloadParserUrl: (payload: {
     url: string;
     crossSourceMatch?: boolean;
@@ -76,7 +84,11 @@ export const api = {
     ),
 
   parserText: (payload: { text: string }) =>
-    http.post("/api/parser/parserText", payload),
+    http.post<unknown, ApiResponse<Array<Record<string, unknown>>>>(
+      "/api/parser/parserText",
+      payload,
+      { timeout: 0 },
+    ),
   parserUrlInfo: (payload: { url: string }) =>
     http.post("/api/parser/parserUrlInfo", payload, { timeout: 0 }),
 

@@ -80,9 +80,29 @@
           <el-descriptions-item label="类型">{{
             info.type || "-"
           }}</el-descriptions-item>
-          <el-descriptions-item label="数量">{{
-            info.targetCount || "-"
-          }}</el-descriptions-item>
+          <el-descriptions-item label="数量">
+            <span
+              >{{
+                info.parsedCount ?? info.targetCount ?? "-"
+              }}
+              首（实际解析）</span
+            >
+            <span
+              v-if="
+                info.parsedCount != null &&
+                info.platformCount != null &&
+                info.parsedCount !== info.platformCount
+              "
+              style="
+                margin-left: 8px;
+                color: var(--el-color-warning);
+                font-size: 12px;
+              "
+            >
+              ⚠ 平台标注
+              {{ info.platformCount }} 首，与实际解析数量不一致（请以实际为准）
+            </span>
+          </el-descriptions-item>
           <el-descriptions-item label="链接" :span="2">{{
             info.targetUrl || url
           }}</el-descriptions-item>
@@ -114,7 +134,11 @@
           class="beauty-table"
           @selection-change="onSelectionChange"
         >
-          <el-table-column type="selection" width="42" />
+          <el-table-column
+            type="selection"
+            width="42"
+            :reserve-selection="true"
+          />
           <el-table-column type="index" label="#" width="48" />
           <el-table-column
             prop="musicName"
@@ -252,6 +276,7 @@ const downloading = ref(false);
 const crossSourceMatch = ref(false);
 
 const info = ref<Record<string, any> | null>(null);
+const platformCount = ref<number | null>(null);
 const parsedSongs = ref<PreviewSongRow[]>([]);
 const selectedSongs = ref<any[]>([]);
 const selectedSongIndexes = ref<number[]>([]);
@@ -367,7 +392,11 @@ const mergeInfo = (patch: Record<string, any>) => {
 const loadPlaylistInfo = async (targetUrl: string) => {
   try {
     const res = await api.parserUrlInfo({ url: targetUrl });
-    mergeInfo((res.data || {}) as Record<string, any>);
+    const data = (res.data || {}) as Record<string, any>;
+    if (data.targetCount != null) {
+      platformCount.value = Number(data.targetCount);
+    }
+    mergeInfo(data);
   } catch {
     mergeInfo({ targetUrl });
   }
@@ -405,6 +434,7 @@ const parseAndPreview = async () => {
   stopPolling();
   loadingPreview.value = true;
   info.value = null;
+  platformCount.value = null;
   parsedSongs.value = [];
   selectedSongs.value = [];
   selectedSongIndexes.value = [];
@@ -466,6 +496,7 @@ const onPageSizeChange = () => {
 // ---- 轮询 ----
 let pollTimer: ReturnType<typeof setInterval> | undefined;
 let previewClockTimer: ReturnType<typeof setInterval> | undefined;
+const DOWNLOAD_BATCH_SIZE = 50;
 
 /**
  * 通用轮询，根据 mode 区分预览（'preview'）和下载（'download'）
@@ -499,7 +530,11 @@ const startPolling = (id: string, mode: "preview" | "download") => {
           );
           rebuildSelectedSongs();
           currentPage.value = 1;
-          mergeInfo({ targetCount: parsedSongs.value.length });
+          mergeInfo({
+            targetCount: parsedSongs.value.length,
+            parsedCount: parsedSongs.value.length,
+            platformCount: platformCount.value,
+          });
           await syncCurrentPageSelection();
         } else if (s.phase === "error") {
           stopPolling();
@@ -563,15 +598,57 @@ const confirmDownload = async () => {
   jobCurrent.value = 0;
   jobTotal.value = 0;
   try {
-    const res = await api.downloadParserUrl({
-      url: playlistUrl.value,
-      crossSourceMatch: crossSourceMatch.value,
-      previewJobId: previewJobId.value,
-      selectedIndexes: selectedSongIndexes.value,
-    });
-    const id = res.data as string;
-    jobId.value = id;
-    startPolling(id, "download");
+    // 去重并排序，避免重复选中导致的异常提交。
+    const normalizedIndexes = [...new Set(selectedSongIndexes.value)]
+      .filter((index) => index >= 0)
+      .sort((left, right) => left - right);
+
+    if (!normalizedIndexes.length) {
+      downloading.value = false;
+      ElMessage.warning("请先选择要下载的歌曲");
+      return;
+    }
+
+    const needBatchSubmit = normalizedIndexes.length > DOWNLOAD_BATCH_SIZE;
+
+    if (!needBatchSubmit) {
+      const res = await api.downloadParserUrl({
+        url: playlistUrl.value,
+        crossSourceMatch: crossSourceMatch.value,
+        previewJobId: previewJobId.value,
+        selectedIndexes: normalizedIndexes,
+      });
+      const id = res.data as string;
+      jobId.value = id;
+      startPolling(id, "download");
+      return;
+    }
+
+    const chunks: number[][] = [];
+    for (let i = 0; i < normalizedIndexes.length; i += DOWNLOAD_BATCH_SIZE) {
+      chunks.push(normalizedIndexes.slice(i, i + DOWNLOAD_BATCH_SIZE));
+    }
+
+    const submittedJobIds: string[] = [];
+    for (let i = 0; i < chunks.length; i += 1) {
+      jobPhase.value = "running";
+      jobMessage.value = `正在分批提交 ${i + 1} / ${chunks.length}…`;
+      const res = await api.downloadParserUrl({
+        url: playlistUrl.value,
+        crossSourceMatch: crossSourceMatch.value,
+        previewJobId: previewJobId.value,
+        selectedIndexes: chunks[i],
+      });
+      submittedJobIds.push((res.data as string) || "");
+    }
+
+    jobId.value = submittedJobIds[submittedJobIds.length - 1] || null;
+    jobPhase.value = "done";
+    jobMessage.value = `已分 ${chunks.length} 批提交，共 ${normalizedIndexes.length} 首`;
+    downloading.value = false;
+    ElMessage.success(
+      `提交成功：已分 ${chunks.length} 批提交，共 ${normalizedIndexes.length} 首`,
+    );
   } catch {
     downloading.value = false;
     jobPhase.value = "error";
