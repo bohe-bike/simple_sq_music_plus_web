@@ -134,11 +134,7 @@
           class="beauty-table"
           @selection-change="onSelectionChange"
         >
-          <el-table-column
-            type="selection"
-            width="42"
-            :reserve-selection="true"
-          />
+          <el-table-column type="selection" width="42" />
           <el-table-column type="index" label="#" width="48" />
           <el-table-column
             prop="musicName"
@@ -416,6 +412,7 @@ const syncCurrentPageSelection = async () => {
   if (!table) {
     return;
   }
+  isSyncingSelection = true;
   table.clearSelection();
   const selectedIndexSet = new Set(selectedSongIndexes.value);
   for (const row of pagedSongs.value) {
@@ -423,6 +420,7 @@ const syncCurrentPageSelection = async () => {
       table.toggleRowSelection(row, true);
     }
   }
+  isSyncingSelection = false;
 };
 
 // ---- 解析 + 预览 ----
@@ -462,6 +460,7 @@ const parseAndPreview = async () => {
 };
 
 const onSelectionChange = (rows: any[]) => {
+  if (isSyncingSelection) return;
   const currentPageIndexSet = new Set(
     pagedSongs.value.map((row) => row.__index),
   );
@@ -496,7 +495,21 @@ const onPageSizeChange = () => {
 // ---- 轮询 ----
 let pollTimer: ReturnType<typeof setInterval> | undefined;
 let previewClockTimer: ReturnType<typeof setInterval> | undefined;
-const DOWNLOAD_BATCH_SIZE = 50;
+// 防止 syncCurrentPageSelection 里的程序化勾选操作触发 onSelectionChange
+let isSyncingSelection = false;
+
+// 按 plugName+musicId/id 去重，避免后端重复返回同一首歌
+const deduplicateSongs = (songs: any[]): any[] => {
+  const seen = new Set<string>();
+  return songs.filter((song) => {
+    const id = song.musicId ?? song.id ?? null;
+    if (id == null) return true;
+    const key = `${song.plugName ?? ""}:${id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
 
 /**
  * 通用轮询，根据 mode 区分预览（'preview'）和下载（'download'）
@@ -521,10 +534,9 @@ const startPolling = (id: string, mode: "preview" | "download") => {
         if (s.phase === "done") {
           stopPolling();
           loadingPreview.value = false;
-          parsedSongs.value = ((s.songs as any[]) || []).map((song, index) => ({
-            ...song,
-            __index: index,
-          }));
+          parsedSongs.value = deduplicateSongs((s.songs as any[]) || []).map(
+            (song, index) => ({ ...song, __index: index }),
+          );
           selectedSongIndexes.value = parsedSongs.value.map(
             (row) => row.__index,
           );
@@ -609,51 +621,26 @@ const confirmDownload = async () => {
       return;
     }
 
-    const needBatchSubmit = normalizedIndexes.length > DOWNLOAD_BATCH_SIZE;
-
-    if (!needBatchSubmit) {
-      const res = await api.downloadParserUrl({
-        url: playlistUrl.value,
-        crossSourceMatch: crossSourceMatch.value,
-        previewJobId: previewJobId.value,
-        selectedIndexes: normalizedIndexes,
-      });
-      const id = res.data as string;
-      jobId.value = id;
-      startPolling(id, "download");
-      return;
-    }
-
-    const chunks: number[][] = [];
-    for (let i = 0; i < normalizedIndexes.length; i += DOWNLOAD_BATCH_SIZE) {
-      chunks.push(normalizedIndexes.slice(i, i + DOWNLOAD_BATCH_SIZE));
-    }
-
-    const submittedJobIds: string[] = [];
-    for (let i = 0; i < chunks.length; i += 1) {
-      jobPhase.value = "running";
-      jobMessage.value = `正在分批提交 ${i + 1} / ${chunks.length}…`;
-      const res = await api.downloadParserUrl({
-        url: playlistUrl.value,
-        crossSourceMatch: crossSourceMatch.value,
-        previewJobId: previewJobId.value,
-        selectedIndexes: chunks[i],
-      });
-      submittedJobIds.push((res.data as string) || "");
-    }
-
-    jobId.value = submittedJobIds[submittedJobIds.length - 1] || null;
-    jobPhase.value = "done";
-    jobMessage.value = `已分 ${chunks.length} 批提交，共 ${normalizedIndexes.length} 首`;
-    downloading.value = false;
-    ElMessage.success(
-      `提交成功：已分 ${chunks.length} 批提交，共 ${normalizedIndexes.length} 首`,
-    );
-  } catch {
+    const res = await api.downloadParserUrl({
+      url: playlistUrl.value,
+      crossSourceMatch: crossSourceMatch.value,
+      previewJobId: previewJobId.value,
+      selectedIndexes: normalizedIndexes,
+    });
+    const id = res.data as string;
+    jobId.value = id;
+    startPolling(id, "download");
+  } catch (e: any) {
     downloading.value = false;
     jobPhase.value = "error";
-    jobMessage.value = "提交失败";
-    ElMessage.error("提交失败");
+    const errMsg: string = e?.msg || e?.message || "";
+    if (errMsg.includes("过期") || errMsg.includes("不存在")) {
+      jobMessage.value = "预览结果已过期，请重新解析歌单";
+      ElMessage.error('预览结果已过期，请重新点击"解析预览"后再提交下载');
+    } else {
+      jobMessage.value = "提交失败";
+      ElMessage.error("提交失败" + (errMsg ? "：" + errMsg : ""));
+    }
   }
 };
 

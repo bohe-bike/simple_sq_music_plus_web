@@ -94,6 +94,9 @@
             <el-button type="danger" plain @click="batchAction('delWaiting')"
               >清空等待</el-button
             >
+            <el-button type="warning" plain @click="batchAction('delDuplicate')"
+              >清除重复</el-button
+            >
           </el-space>
         </div>
       </div>
@@ -320,6 +323,13 @@ const batchAction = async (type: string) => {
   if (type === "delError") await api.taskDeleteError();
   if (type === "delSuccess") await api.taskDeleteSuccess();
   if (type === "delWaiting") await api.taskDeleteWaiting();
+  if (type === "delDuplicate") {
+    const res = await api.taskDelDuplicate();
+    const count = res.data ?? 0;
+    ElMessage.success(`已清除 ${count} 条重复记录（源文件未删除）`);
+    fetchTasks();
+    return;
+  }
   ElMessage.success("操作成功");
   fetchTasks();
 };

@@ -102,6 +102,8 @@ export const api = {
   taskDeleteError: () => http.get("/api/task/delErrorTask"),
   taskDeleteSuccess: () => http.get("/api/task/delSuccessTask"),
   taskDeleteWaiting: () => http.get("/api/task/delWaitingTask"),
+  taskDelDuplicate: () =>
+    http.get<unknown, ApiResponse<number>>("/api/task/delDuplicate"),
   taskProgress: () =>
     http.get<unknown, ApiResponse<Record<number, any>>>(
       "/api/task/taskProgress",
