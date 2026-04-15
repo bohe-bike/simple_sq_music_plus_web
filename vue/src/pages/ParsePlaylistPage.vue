@@ -407,12 +407,13 @@ const rebuildSelectedSongs = () => {
 };
 
 const syncCurrentPageSelection = async () => {
+  isSyncingSelection = true; // 必须在 nextTick 之前设置，防止翻页时 el-table 因 :data 变化触发 selection-change
   await nextTick();
   const table = tableRef.value;
   if (!table) {
+    isSyncingSelection = false;
     return;
   }
-  isSyncingSelection = true;
   table.clearSelection();
   const selectedIndexSet = new Set(selectedSongIndexes.value);
   for (const row of pagedSongs.value) {
