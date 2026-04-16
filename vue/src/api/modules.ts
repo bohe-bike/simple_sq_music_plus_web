@@ -127,6 +127,8 @@ export const api = {
   monitorList: () => http.get("/api/monitor/list"),
   monitorAdd: (payload: Record<string, unknown>) =>
     http.post("/api/monitor/add", payload),
+  monitorAddByUrl: (payload: { url: string }) =>
+    http.post("/api/monitor/addByUrl", payload),
   monitorDelete: (payload: { id: number }) =>
     http.post("/api/monitor/delete", payload),
 

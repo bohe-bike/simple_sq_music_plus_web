@@ -14,16 +14,33 @@
     />
 
     <el-table :data="list" v-loading="loading" stripe empty-text="暂无监听任务">
-      <el-table-column prop="targetName" label="名称" min-width="180" show-overflow-tooltip />
+      <el-table-column
+        prop="targetName"
+        label="名称"
+        min-width="180"
+        show-overflow-tooltip
+      />
       <el-table-column prop="plugName" label="来源" width="100" />
       <el-table-column prop="type" label="类型" width="110" />
       <el-table-column prop="targetCount" label="数量" width="90" />
-      <el-table-column prop="targetUrl" label="链接" min-width="230" show-overflow-tooltip />
-      <el-table-column prop="targetDesc" label="描述" min-width="160" show-overflow-tooltip />
+      <el-table-column
+        prop="targetUrl"
+        label="链接"
+        min-width="230"
+        show-overflow-tooltip
+      />
+      <el-table-column
+        prop="targetDesc"
+        label="描述"
+        min-width="160"
+        show-overflow-tooltip
+      />
       <el-table-column prop="updateTime" label="更新时间" width="180" />
       <el-table-column label="操作" width="100" fixed="right">
         <template #default="scope">
-          <el-button text type="danger" @click="remove(scope.row.id)">删除</el-button>
+          <el-button text type="danger" @click="remove(scope.row.id)"
+            >删除</el-button
+          >
         </template>
       </el-table-column>
     </el-table>
@@ -46,104 +63,105 @@
       />
 
       <el-descriptions v-if="parsedInfo" :column="2" border class="preview">
-        <el-descriptions-item label="名称">{{ parsedInfo.targetName || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="来源">{{ parsedInfo.plugName || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="类型">{{ parsedInfo.type || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="数量">{{ parsedInfo.targetCount || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="链接" :span="2">{{ parsedInfo.targetUrl || targetUrl }}</el-descriptions-item>
+        <el-descriptions-item label="名称">{{
+          parsedInfo.targetName || "-"
+        }}</el-descriptions-item>
+        <el-descriptions-item label="来源">{{
+          parsedInfo.plugName || "-"
+        }}</el-descriptions-item>
+        <el-descriptions-item label="类型">{{
+          parsedInfo.type || "-"
+        }}</el-descriptions-item>
+        <el-descriptions-item label="数量">{{
+          parsedInfo.targetCount || "-"
+        }}</el-descriptions-item>
+        <el-descriptions-item label="链接" :span="2">{{
+          parsedInfo.targetUrl || targetUrl
+        }}</el-descriptions-item>
       </el-descriptions>
 
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button :loading="parsing" @click="parseByUrl">解析信息</el-button>
-        <el-button type="primary" :loading="saving" :disabled="!targetUrl.trim()" @click="save">保存监听</el-button>
+        <el-button
+          type="primary"
+          :loading="saving"
+          :disabled="!targetUrl.trim()"
+          @click="save"
+          >保存监听</el-button
+        >
       </template>
     </el-dialog>
   </section>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { api } from '../api/modules'
+import { ref } from "vue";
+import { ElMessage } from "element-plus";
+import { api } from "../api/modules";
 
-const loading = ref(false)
-const parsing = ref(false)
-const saving = ref(false)
-const dialogVisible = ref(false)
-const list = ref<Array<Record<string, any>>>([])
-const targetUrl = ref('')
-const parsedInfo = ref<Record<string, any> | null>(null)
+const loading = ref(false);
+const parsing = ref(false);
+const saving = ref(false);
+const dialogVisible = ref(false);
+const list = ref<Array<Record<string, any>>>([]);
+const targetUrl = ref("");
+const parsedInfo = ref<Record<string, any> | null>(null);
 
 const fetchList = async () => {
-  loading.value = true
+  loading.value = true;
   try {
-    const res = await api.monitorList()
-    list.value = (res.data || []) as Array<Record<string, any>>
+    const res = await api.monitorList();
+    list.value = (res.data || []) as Array<Record<string, any>>;
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const openAddDialog = () => {
-  targetUrl.value = ''
-  parsedInfo.value = null
-  dialogVisible.value = true
-}
+  targetUrl.value = "";
+  parsedInfo.value = null;
+  dialogVisible.value = true;
+};
 
 const parseByUrl = async () => {
   if (!targetUrl.value.trim()) {
-    ElMessage.warning('请先输入 URL')
-    return
+    ElMessage.warning("请先输入 URL");
+    return;
   }
-  parsing.value = true
+  parsing.value = true;
   try {
-    const res = await api.parserUrlInfo({ url: targetUrl.value.trim() })
-    parsedInfo.value = (res.data || {}) as Record<string, any>
-    ElMessage.success('已自动识别链接信息')
+    const res = await api.parserUrlInfo({ url: targetUrl.value.trim() });
+    parsedInfo.value = (res.data || {}) as Record<string, any>;
+    ElMessage.success("已自动识别链接信息");
   } finally {
-    parsing.value = false
+    parsing.value = false;
   }
-}
+};
 
 const save = async () => {
   if (!targetUrl.value.trim()) {
-    ElMessage.warning('请先输入 URL')
-    return
+    ElMessage.warning("请先输入 URL");
+    return;
   }
-  saving.value = true
+  saving.value = true;
   try {
-    if (!parsedInfo.value) {
-      await parseByUrl()
-    }
-
-    const payload = {
-      ...(parsedInfo.value || {}),
-      targetUrl: (parsedInfo.value?.targetUrl as string) || targetUrl.value.trim(),
-      enabled: 'true',
-    }
-
-    if (!payload.plugName || !payload.targetId) {
-      ElMessage.warning('该链接暂未识别到可监听目标，请更换链接后重试')
-      return
-    }
-
-    await api.monitorAdd(payload)
-    ElMessage.success('监听已创建')
-    dialogVisible.value = false
-    fetchList()
+    await api.monitorAddByUrl({ url: targetUrl.value.trim() });
+    ElMessage.success("监听已创建，名称/数量等信息将在后台自动补全");
+    dialogVisible.value = false;
+    fetchList();
   } finally {
-    saving.value = false
+    saving.value = false;
   }
-}
+};
 
 const remove = async (id: number) => {
-  await api.monitorDelete({ id })
-  ElMessage.success('已删除')
-  fetchList()
-}
+  await api.monitorDelete({ id });
+  ElMessage.success("已删除");
+  fetchList();
+};
 
-fetchList()
+fetchList();
 </script>
 
 <style scoped>
