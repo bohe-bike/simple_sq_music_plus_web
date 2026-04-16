@@ -89,6 +89,21 @@ export const api = {
       payload,
       { timeout: 0 },
     ),
+  previewParserText: (payload: { text: string }) =>
+    http.post<unknown, ApiResponse<string>>(
+      "/api/download/previewParserText",
+      payload,
+      { timeout: 0 },
+    ),
+  downloadParserTextJob: (payload: {
+    previewJobId: string;
+    selectedIndexes?: number[];
+  }) =>
+    http.post<unknown, ApiResponse<unknown>>(
+      "/api/download/downloadParserTextJob",
+      payload,
+      { timeout: 0 },
+    ),
   parserUrlInfo: (payload: { url: string }) =>
     http.post("/api/parser/parserUrlInfo", payload, { timeout: 0 }),
 

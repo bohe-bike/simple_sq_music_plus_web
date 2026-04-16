@@ -79,7 +79,7 @@ const activePath = computed(() => route.path);
 
 const uploadSpeed = ref("0.00 B/s");
 const downloadSpeed = ref("0.00 B/s");
-const appVersion = ref("-");
+const appVersion = ref(__APP_VERSION__);
 const displayVersion = computed(() => {
   const versionText = appVersion.value.trim();
   if (!versionText || versionText === "-") {
@@ -107,14 +107,6 @@ const onSelect = (path: string) => {
 };
 
 onMounted(() => {
-  api
-    .version()
-    .then((res) => {
-      appVersion.value = String(res.data || "-");
-    })
-    .catch(() => {
-      appVersion.value = "-";
-    });
   fetchSpeed();
   timer = window.setInterval(fetchSpeed, 2000);
 });
