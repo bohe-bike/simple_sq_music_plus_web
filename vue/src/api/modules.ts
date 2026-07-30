@@ -9,6 +9,7 @@ export interface SearchParams {
 
 export interface LyricRepairRequest {
   overwriteExisting?: boolean;
+  crossSourceSearch?: boolean;
 }
 
 export interface LyricRepairItem {
@@ -33,6 +34,7 @@ export interface LyricRepairJobStatus {
   skippedExisting: number;
   matched: number;
   repaired: number;
+  crossSourceRepaired: number;
   unmatched: number;
   noLyric: number;
   failed: number;

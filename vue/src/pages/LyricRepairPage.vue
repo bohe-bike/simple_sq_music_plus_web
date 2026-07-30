@@ -3,7 +3,7 @@
     <header class="panel-head">
       <div>
         <h2 class="page-title">歌词补全</h2>
-        <p class="sub">扫描下载目录中缺少歌词的音频，并按原下载音源补充同名 LRC 文件。</p>
+        <p class="sub">扫描下载目录中缺少歌词的音频，优先使用原音源，并可从其他已启用音源补充同名 LRC 文件。</p>
       </div>
       <el-tag type="info" effect="plain">{{ jobId ? `任务 ${jobId.slice(0, 8)}` : "未启动任务" }}</el-tag>
     </header>
@@ -15,6 +15,13 @@
           <span>默认跳过已有且非空的歌词文件，不会修改音频文件。</span>
         </div>
         <el-switch v-model="overwriteExisting" active-text="覆盖现有歌词" />
+      </div>
+      <div class="control-row option-divider">
+        <div class="control-copy">
+          <strong>跨源搜索</strong>
+          <span>原音源无歌词时，严格匹配歌名和歌手，并用专辑信息消除同名版本。</span>
+        </div>
+        <el-switch v-model="crossSourceSearch" active-text="启用多源歌词" />
       </div>
       <div class="action-row">
         <el-button :loading="submitting" :disabled="isActive" @click="runPreview">扫描缺失歌词</el-button>
@@ -36,6 +43,7 @@
         <div class="metric"><span>待处理</span><strong>{{ status.candidates }}</strong></div>
         <div class="metric"><span>已匹配</span><strong>{{ status.matched }}</strong></div>
         <div class="metric"><span>补全成功</span><strong class="success-text">{{ status.repaired }}</strong></div>
+        <div class="metric"><span>跨源补全</span><strong class="success-text">{{ status.crossSourceRepaired }}</strong></div>
         <div class="metric"><span>无歌词</span><strong class="warning-text">{{ status.noLyric }}</strong></div>
         <div class="metric"><span>未匹配或失败</span><strong class="danger-text">{{ status.unmatched + status.failed }}</strong></div>
       </div>
@@ -76,6 +84,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { api, type LyricRepairJobStatus } from "../api/modules";
 
 const overwriteExisting = ref(false);
+const crossSourceSearch = ref(true);
 const submitting = ref(false);
 const jobId = ref("");
 const status = ref<LyricRepairJobStatus | null>(null);
@@ -158,7 +167,10 @@ const startPolling = async () => {
 const submit = async (mode: "preview" | "repair") => {
   submitting.value = true;
   try {
-    const payload = { overwriteExisting: overwriteExisting.value };
+    const payload = {
+      overwriteExisting: overwriteExisting.value,
+      crossSourceSearch: crossSourceSearch.value,
+    };
     const res = mode === "preview"
       ? await api.lyricRepairPreview(payload)
       : await api.lyricRepairStart(payload);
@@ -175,7 +187,8 @@ const runPreview = () => submit("preview");
 
 const runRepair = async () => {
   const actionText = overwriteExisting.value ? "覆盖已有歌词并补全" : "补全缺失歌词";
-  await ElMessageBox.confirm(`${actionText}？补全过程不会修改音频文件。`, "确认启动", {
+  const sourceText = crossSourceSearch.value ? "，原音源无歌词时将搜索其他已启用音源" : "";
+  await ElMessageBox.confirm(`${actionText}${sourceText}。补全过程不会修改音频文件。`, "确认启动", {
     type: "warning",
     confirmButtonText: "开始补全",
     cancelButtonText: "取消",
@@ -226,6 +239,12 @@ onUnmounted(stopPolling);
 .action-row {
   justify-content: flex-start;
   margin-top: 16px;
+}
+
+.option-divider {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
 }
 
 .status-title {
