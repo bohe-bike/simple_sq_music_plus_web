@@ -48,6 +48,7 @@
           >
             <el-menu-item index="/search">搜索</el-menu-item>
             <el-menu-item index="/download">下载</el-menu-item>
+            <el-menu-item index="/lyric-repair">歌词补全</el-menu-item>
             <el-menu-item index="/parse-text">解析文本</el-menu-item>
             <el-menu-item index="/parse-playlist">解析歌单</el-menu-item>
             <el-menu-item index="/monitor">监听下载</el-menu-item>

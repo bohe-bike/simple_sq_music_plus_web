@@ -17,6 +17,7 @@ const router = createRouter({
         { path: '', redirect: '/search' },
         { path: '/search', name: 'search', component: () => import('../pages/SearchPage.vue') },
         { path: '/download', name: 'download', component: () => import('../pages/DownloadPage.vue') },
+        { path: '/lyric-repair', name: 'lyric-repair', component: () => import('../pages/LyricRepairPage.vue') },
         { path: '/parse-text', name: 'parse-text', component: () => import('../pages/ParseTextPage.vue') },
         { path: '/parse-playlist', name: 'parse-playlist', component: () => import('../pages/ParsePlaylistPage.vue') },
         { path: '/monitor', name: 'monitor', component: () => import('../pages/MonitorPage.vue') },

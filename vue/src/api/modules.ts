@@ -7,6 +7,42 @@ export interface SearchParams {
   pageSize: number;
 }
 
+export interface LyricRepairRequest {
+  overwriteExisting?: boolean;
+}
+
+export interface LyricRepairItem {
+  file: string;
+  status: "matched" | "unmatched" | "repaired" | "no_lyric" | "failed";
+  message: string;
+  plugName?: string;
+  musicId?: string;
+  musicName?: string;
+  artistName?: string;
+}
+
+export interface LyricRepairJobStatus {
+  jobId: string;
+  preview: boolean;
+  phase: "pending" | "scanning" | "matching" | "repairing" | "done" | "error";
+  percent: number;
+  current: number;
+  total: number;
+  scanned: number;
+  candidates: number;
+  skippedExisting: number;
+  matched: number;
+  repaired: number;
+  unmatched: number;
+  noLyric: number;
+  failed: number;
+  message: string;
+  errorMsg?: string;
+  downloadPath?: string;
+  detailsTruncated: boolean;
+  items: LyricRepairItem[];
+}
+
 export const api = {
   login: (payload: { username: string; password: string; device: string }) =>
     http.post<unknown, ApiResponse<{ tokenValue?: string; token?: string }>>(
@@ -122,6 +158,24 @@ export const api = {
   taskProgress: () =>
     http.get<unknown, ApiResponse<Record<number, any>>>(
       "/api/task/taskProgress",
+    ),
+
+  lyricRepairPreview: (payload: LyricRepairRequest) =>
+    http.post<unknown, ApiResponse<string>>(
+      "/api/lyricRepair/preview",
+      payload,
+      { timeout: 0 },
+    ),
+  lyricRepairStart: (payload: LyricRepairRequest) =>
+    http.post<unknown, ApiResponse<string>>(
+      "/api/lyricRepair/start",
+      payload,
+      { timeout: 0 },
+    ),
+  lyricRepairStatus: (jobId: string) =>
+    http.get<unknown, ApiResponse<LyricRepairJobStatus>>(
+      `/api/lyricRepair/status/${jobId}`,
+      { timeout: 0 },
     ),
 
   monitorList: () => http.get("/api/monitor/list"),

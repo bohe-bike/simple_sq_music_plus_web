@@ -20,6 +20,7 @@ const http: AxiosInstance = axios.create({
 http.interceptors.request.use((config) => {
   const token = getToken();
   if (token) {
+    config.headers.sqmusic = token;
     config.headers.satoken = token;
     config.headers.Authorization = `Bearer ${token}`;
   }
